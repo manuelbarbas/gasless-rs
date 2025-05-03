@@ -1,4 +1,4 @@
-#[macro_use] extern crate tslink;
+// #[macro_use] extern crate tslink;
 use tslink::tslink;
 use node_bindgen::derive::node_bindgen;
 use alloy_primitives::{hex, Address, B256, U256};
