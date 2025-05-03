@@ -1,0 +1,90 @@
+name: Build and Publish
+
+on:
+  push:
+    tags:
+      - 'v*'  # Trigger on version tags
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  build:
+    name: Build for ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            platform: linux
+          - os: windows-latest
+            platform: win32
+          - os: macos-latest
+            platform: darwin
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16.x'
+      
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+      
+      - name: Install node-bindgen CLI
+        run: cargo install nj-cli
+      
+      - name: Install dependencies
+        run: npm ci || npm install
+      
+      - name: Build with node-bindgen
+        run: nj-cli build --release
+      
+      - name: Upload binary
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.platform }}-binary
+          path: dist/index.node
+
+  publish:
+    name: Publish Package
+    needs: build
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16.x'
+          registry-url: 'https://registry.npmjs.org'
+      
+      - name: Install dependencies
+        run: npm ci || npm install
+      
+      - name: Download all platform binaries
+        uses: actions/download-artifact@v3
+        with:
+          path: ./platform-binaries
+      
+      - name: Create platform directories and copy binaries
+        run: |
+          # Create platform-specific directories
+          mkdir -p dist/linux
+          mkdir -p dist/win32
+          mkdir -p dist/darwin
+          
+          # Copy binaries to platform directories
+          cp platform-binaries/linux-binary/index.node dist/linux/ || echo "No Linux binary found"
+          cp platform-binaries/win32-binary/index.node dist/win32/ || echo "No Windows binary found"
+          cp platform-binaries/darwin-binary/index.node dist/darwin/ || echo "No macOS binary found"
+      
+      - name: Publish to NPM
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

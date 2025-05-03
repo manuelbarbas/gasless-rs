@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "gasless-rs": "file:../../dist",
+    "viem": "^2.28.3"
+  }
+}
