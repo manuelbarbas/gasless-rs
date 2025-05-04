@@ -1,4 +1,4 @@
-name: Build and Publish
+name: Buld and Publish NPM Package
 
 on:
   push:
