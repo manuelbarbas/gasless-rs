@@ -40,50 +40,36 @@ jobs:
       
       - name: Install dependencies
         run: npm ci || npm install
-      
-      - name: Install node-gyp and node headers (Linux)
+        
+      - name: Install dependencies (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
-          sudo apt-get install -y nodejs-dev node-gyp libssl-dev
-          npm install -g node-gyp
-          node-gyp install
-      
-      - name: Install node-gyp (Windows & Mac)
-        if: matrix.os != 'ubuntu-latest'
-        run: |
-          npm install -g node-gyp
-          node-gyp install
-      
-      - name: Setup additional Linux dependencies
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          export CFLAGS="-I$(node -e 'console.log(require(\"path\").join(process.env.HOME, \".cache\", \"node-gyp\", process.versions.node, \"include\", \"node\"))')"
-          export CXXFLAGS=$CFLAGS
-          echo "Adding node include path: $CFLAGS"
-          echo "CFLAGS=$CFLAGS" >> $GITHUB_ENV
-          echo "CXXFLAGS=$CXXFLAGS" >> $GITHUB_ENV
+          sudo apt-get install -y libnode-dev
       
       - name: Build with node-bindgen
         run: nj-cli build --release
-        env:
-          RUSTFLAGS: "-C link-args=-undefined dynamic_lookup"
-      
-      - name: Check build output
-        run: |
-          ls -la dist || echo "No dist directory"
-          find . -name "*.node" || echo "No .node files found"
       
       - name: Create platform directory
         run: |
           mkdir -p dist/${{ matrix.platform }}
-          find . -name "*.node" -exec cp {} dist/${{ matrix.platform }}/index.node \; || echo "No .node file found to copy"
+          # Copy the built binary to the platform-specific directory
+          if [ -f "dist/index.node" ]; then
+            cp dist/index.node dist/${{ matrix.platform }}/
+          elif [ -f "native/index.node" ]; then
+            cp native/index.node dist/${{ matrix.platform }}/
+          else
+            echo "Could not find .node file"
+            find . -name "*.node"
+            exit 1
+          fi
+        shell: bash
       
       - name: Upload binary
         uses: actions/upload-artifact@v3
         with:
           name: ${{ matrix.platform }}-binary
-          path: dist/${{ matrix.platform }}/index.node
+          path: dist/${{ matrix.platform }}/
 
   publish:
     name: Publish Package
@@ -99,30 +85,23 @@ jobs:
           node-version: '16.x'
           registry-url: 'https://registry.npmjs.org'
       
-      - name: Install dependencies
-        run: npm ci || npm install
-      
-      - name: Create dist directory
-        run: mkdir -p dist
-      
       - name: Download all platform binaries
         uses: actions/download-artifact@v3
         with:
-          path: ./platform-binaries
+          path: dist
       
-      - name: Create platform directories and copy binaries
+      - name: Organize binaries
         run: |
-          # Create platform-specific directories
+          # Move files from the artifact directories to the appropriate platform directories
           mkdir -p dist/linux
           mkdir -p dist/win32
           mkdir -p dist/darwin
           
-          # Copy binaries to platform directories
-          cp platform-binaries/linux-binary/index.node dist/linux/ || echo "No Linux binary found"
-          cp platform-binaries/win32-binary/index.node dist/win32/ || echo "No Windows binary found" 
-          cp platform-binaries/darwin-binary/index.node dist/darwin/ || echo "No macOS binary found"
+          cp -r dist/linux-binary/* dist/linux/ || echo "No Linux binary found"
+          cp -r dist/win32-binary/* dist/win32/ || echo "No Windows binary found"
+          cp -r dist/darwin-binary/* dist/darwin/ || echo "No macOS binary found"
           
-          # List contents to verify
+          # List final structure
           find dist -type f
       
       - name: Publish to NPM
