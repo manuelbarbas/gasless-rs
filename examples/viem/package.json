@@ -1,6 +1,7 @@
 {
+  "type": "module",
   "dependencies": {
-    "gasless-rs": "file:../../dist",
+    "@eidolon-labs/gasless": "file:../..",
     "viem": "^2.28.3"
   }
 }

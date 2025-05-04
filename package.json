@@ -1,0 +1,30 @@
+{
+  "name": "@eidolon-labs/gasless",
+  "version": "0.1.0",
+  "files": [
+    "dist/**/*",
+    "index.js",
+    "index.d.ts"
+  ],
+  "module": "index.js",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "directories": {
+    "example": "examples"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Eidolon-Labs/gasless-rs.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Eidolon-Labs/gasless-rs/issues"
+  },
+  "homepage": "https://github.com/Eidolon-Labs/gasless-rs#readme",
+  "description": ""
+}
