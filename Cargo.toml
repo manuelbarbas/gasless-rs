@@ -2,6 +2,14 @@
 name = "gasless"
 version = "0.1.0"
 edition = "2024"
+authors = ["Sawyer Cutler <sawyer@dirtroa.dev>", "Manuel Barbas"]
+description = "Gasless Transactions in Rust for SKALE Network"
+readme = "README.md"
+homepage = "https://eidolon.gg"
+repository = "https://github.com/Eidolon-Labs/gasless-rs"
+license = "MIT"
+keywords = ["blockchain", "skale", "evm", "gasless", "eidolon"]
+publish = ["gasless"]
 
 [lib]
 crate-type = ["cdylib"]
