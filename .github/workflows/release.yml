@@ -41,14 +41,49 @@ jobs:
       - name: Install dependencies
         run: npm ci || npm install
       
+      - name: Install node-gyp and node headers (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y nodejs-dev node-gyp libssl-dev
+          npm install -g node-gyp
+          node-gyp install
+      
+      - name: Install node-gyp (Windows & Mac)
+        if: matrix.os != 'ubuntu-latest'
+        run: |
+          npm install -g node-gyp
+          node-gyp install
+      
+      - name: Setup additional Linux dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          export CFLAGS="-I$(node -e 'console.log(require(\"path\").join(process.env.HOME, \".cache\", \"node-gyp\", process.versions.node, \"include\", \"node\"))')"
+          export CXXFLAGS=$CFLAGS
+          echo "Adding node include path: $CFLAGS"
+          echo "CFLAGS=$CFLAGS" >> $GITHUB_ENV
+          echo "CXXFLAGS=$CXXFLAGS" >> $GITHUB_ENV
+      
       - name: Build with node-bindgen
         run: nj-cli build --release
+        env:
+          RUSTFLAGS: "-C link-args=-undefined dynamic_lookup"
+      
+      - name: Check build output
+        run: |
+          ls -la dist || echo "No dist directory"
+          find . -name "*.node" || echo "No .node files found"
+      
+      - name: Create platform directory
+        run: |
+          mkdir -p dist/${{ matrix.platform }}
+          find . -name "*.node" -exec cp {} dist/${{ matrix.platform }}/index.node \; || echo "No .node file found to copy"
       
       - name: Upload binary
         uses: actions/upload-artifact@v3
         with:
           name: ${{ matrix.platform }}-binary
-          path: dist/index.node
+          path: dist/${{ matrix.platform }}/index.node
 
   publish:
     name: Publish Package
@@ -67,6 +102,9 @@ jobs:
       - name: Install dependencies
         run: npm ci || npm install
       
+      - name: Create dist directory
+        run: mkdir -p dist
+      
       - name: Download all platform binaries
         uses: actions/download-artifact@v3
         with:
@@ -81,8 +119,11 @@ jobs:
           
           # Copy binaries to platform directories
           cp platform-binaries/linux-binary/index.node dist/linux/ || echo "No Linux binary found"
-          cp platform-binaries/win32-binary/index.node dist/win32/ || echo "No Windows binary found"
+          cp platform-binaries/win32-binary/index.node dist/win32/ || echo "No Windows binary found" 
           cp platform-binaries/darwin-binary/index.node dist/darwin/ || echo "No macOS binary found"
+          
+          # List contents to verify
+          find dist -type f
       
       - name: Publish to NPM
         run: npm publish --access public
