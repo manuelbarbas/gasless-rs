@@ -2,9 +2,9 @@ name: Build and Publish
 
 on:
   push:
-    tags:
-      - 'v*'  # Trigger on version tags
-  workflow_dispatch:  # Allow manual triggering
+  #   tags:
+  #     - 'v*'  # Trigger on version tags
+  # workflow_dispatch:  # Allow manual triggering
 
 jobs:
   build:
@@ -104,7 +104,7 @@ jobs:
           # List final structure
           find dist -type f
       
-      - name: Publish to NPM
-        run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # - name: Publish to NPM
+      #   run: npm publish --access public
+      #   env:
+      #     NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
