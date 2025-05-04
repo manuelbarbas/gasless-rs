@@ -9,7 +9,6 @@ homepage = "https://eidolon.gg"
 repository = "https://github.com/Eidolon-Labs/gasless-rs"
 license = "MIT"
 keywords = ["blockchain", "skale", "evm", "gasless", "eidolon"]
-publish = ["gasless"]
 
 [lib]
 crate-type = ["cdylib"]
