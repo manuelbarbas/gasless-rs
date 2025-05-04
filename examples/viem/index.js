@@ -1,5 +1,6 @@
-import { mineGasForTransaction } from '../../index.js';
-console.log("Mine: ", mineGasForTransaction)
+// import { mineGasForTransaction } from '../../index.js';
+// console.log("Mine: ", mineGasForTransaction)
+import { mineGasForTransaction } from "@eidolon-labs/gasless";
 
 
 import { createPublicClient, createWalletClient, http } from "viem";
