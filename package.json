@@ -13,18 +13,28 @@
     "example": "examples"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build::mac": "nj-cli build --out dist/darwn"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Eidolon-Labs/gasless-rs.git"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": {
+    "email": "sawyer@dirtroad.dev",
+    "name": "Sawyer Cutler",
+    "url": "https://github.com/TheGreatAxios"
+  },
+  "contributors": [
+    {
+      "name": "Manuel Barbas",
+      "url": "https://github.com/manuelbarbas"
+    }
+  ],
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/Eidolon-Labs/gasless-rs/issues"
   },
   "homepage": "https://github.com/Eidolon-Labs/gasless-rs#readme",
-  "description": ""
+  "description": "Gasless transactions on SKALE, powered by blazing fast Rust"
 }
