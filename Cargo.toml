@@ -1,5 +1,5 @@
 [package]
-name = "gasless-rs"
+name = "gasless"
 version = "0.1.0"
 edition = "2024"
 
@@ -16,6 +16,3 @@ tokio = { version = "1.44.2", features = ["macros", "rt-multi-thread"]}
 
 [build-dependencies]
 node-bindgen = { version = "6.1.0", default-features = false, features = ["build"] }
-
-[tslink]
-node = "./dist/index.node"
