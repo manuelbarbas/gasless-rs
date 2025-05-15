@@ -1,7 +1,7 @@
 [package]
 name = "gasless"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 authors = ["Sawyer Cutler <sawyer@dirtroa.dev>", "Manuel Barbas"]
 description = "Gasless Transactions in Rust for SKALE Network"
 readme = "README.md"
