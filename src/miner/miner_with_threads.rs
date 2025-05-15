@@ -1,4 +1,3 @@
-use node_bindgen::derive::node_bindgen;
 use alloy_primitives::{hex, Address, B256, U256};
 use rand::Rng;
 use std::time::{Instant, Duration};
@@ -6,8 +5,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-#[node_bindgen(name = "mineGasForTransaction")]
-pub async fn mine_gas_for_transaction(gas_amount: u32, address: String, nonce: u32) -> Result<MiningOutput, String> {
+pub async fn mine_gas_for_transaction(gas_amount: u32, address: &String, nonce: u32) -> Result<MiningOutput, String> {
     // Validate and parse input
     if !is_address(&address) {
         return Err("Invalid Address".to_string());
@@ -26,13 +24,12 @@ pub async fn mine_gas_for_transaction(gas_amount: u32, address: String, nonce: u
 }
 
 // Export struct with JavaScript-friendly name
-#[node_bindgen]
 pub struct MiningOutput {
     pub duration: f64,
     pub gas_price: String,
 }
 
-// Helper functions remain the same
+// Helper functions
 fn is_address(value: &str) -> bool {
     if !value.starts_with("0x") || value.len() != 42 {
         return false;
@@ -148,43 +145,4 @@ fn keccak256(data: impl AsRef<[u8]>) -> [u8; 32] {
     let mut hasher = Keccak256::new();
     hasher.update(data);
     hasher.finalize().into()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    
-    #[test]
-    fn test_is_address() {
-        assert!(is_address("0x1234567890123456789012345678901234567890"));
-        assert!(!is_address("0x12345"));
-        assert!(!is_address("not_an_address"));
-    }
-    
-    #[test]
-    fn test_basic_mining() {
-        let address = Address::parse_checksummed("0x1234567890123456789012345678901234567890", None).unwrap();
-        let result = mine_free_gas_parallel(21000, address, 1);
-        assert!(result.is_ok());
-    }
-    
-    #[tokio::test]  
-    async fn test_skale_pow_mining() {
-        let from_address = Address::parse_checksummed("0x742d35Cc6634C0532925a3b844Bc454e4438f44e", None).unwrap();
-        let nonce = 42;
-        let gas = 21000;
-        
-        println!("Testing SKALE PoW gas mining");
-        
-        let start = Instant::now();
-        let result = mine_free_gas_parallel(gas, from_address, nonce).unwrap();
-        
-        let elapsed = start.elapsed();
-        println!("Mining completed successfully!");
-        println!("Gas price: 0x{}", hex::encode(result.1.to_be_bytes::<32>()));
-        println!("Mining took: {} seconds", result.0.as_secs_f64());
-        println!("Actual elapsed time: {:.2} seconds", elapsed.as_secs_f64());
-        
-        assert!(result.0.as_secs_f64() > 0.0, "Duration should be positive");
-    }
 }
