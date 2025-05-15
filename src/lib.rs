@@ -2,10 +2,12 @@ use node_bindgen::derive::node_bindgen;
 use alloy_primitives::{hex, Address, B256, U256};
 use rand::Rng;
 use std::time::{Instant, Duration};
+use std::sync::{Arc, Mutex};
+use std::thread;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 #[node_bindgen(name = "mineGasForTransaction")]
 pub async fn mine_gas_for_transaction(gas_amount: u32, address: String, nonce: u32) -> Result<MiningOutput, String> {
-    // Function implementation remains the same
     // Validate and parse input
     if !is_address(&address) {
         return Err("Invalid Address".to_string());
@@ -15,7 +17,7 @@ pub async fn mine_gas_for_transaction(gas_amount: u32, address: String, nonce: u
         .map_err(|_| "Invalid address format".to_string())?;
     
     // Perform mining
-    let result = mine_free_gas(gas_amount, address, nonce).unwrap();
+    let result = mine_free_gas_parallel(gas_amount, address, nonce).map_err(|e| e.to_string())?;
     
     Ok(MiningOutput {
         duration: result.0.as_secs_f64() * 1000.0, // Convert to milliseconds
@@ -38,8 +40,7 @@ fn is_address(value: &str) -> bool {
     value[2..].chars().all(|c| c.is_ascii_hexdigit())
 }
 
-fn mine_free_gas(gas_amount: u32, address: Address, nonce: u32) -> Result<(Duration, U256), String> {
-    // Implementation remains the same
+fn mine_free_gas_parallel(gas_amount: u32, address: Address, nonce: u32) -> Result<(Duration, U256), String> {
     // Calculate nonce hash
     let nonce_bytes = U256::from(nonce).to_be_bytes::<32>();
     let nonce_hash = U256::from_be_bytes(B256::from(keccak256(&nonce_bytes)).0);
@@ -54,41 +55,91 @@ fn mine_free_gas(gas_amount: u32, address: Address, nonce: u32) -> Result<(Durat
     let div_constant = U256::MAX;
     
     let start = Instant::now();
-    let mut rng = rand::thread_rng();
-    let mut iterations = 0;
     
-    // Mining loop
-    loop {
-        // Generate random candidate
-        let mut candidate_bytes = [0u8; 32];
-        rng.fill(&mut candidate_bytes);
-        let candidate = U256::from_be_bytes(candidate_bytes);
+    // Determine number of threads - use one less than available to avoid overwhelming the system
+    let num_threads = thread::available_parallelism().map(|n| n.get()).unwrap_or(4).max(1);
+    let num_threads = if num_threads > 1 { num_threads - 1 } else { 1 };
+    
+    // Shared flag to signal when a solution is found
+    let solution_found = Arc::new(AtomicBool::new(false));
+    
+    // Shared storage for the solution
+    let solution = Arc::new(Mutex::new(None));
+    
+    // Spawn worker threads
+    let mut handles = vec![];
+    
+    println!("Number threads {}", num_threads);
+
+    for _ in 0..num_threads {
+        let solution_found_clone = solution_found.clone();
+        let solution_clone = solution.clone();
+
+        let handle: thread::JoinHandle<()> = thread::spawn(move || {
+            let mut rng = rand::thread_rng();
+            let mut iterations = 0;
+            
+            // Mining loop
+            while !solution_found_clone.load(Ordering::Relaxed) {
+                // Generate random candidate
+                let mut candidate_bytes = [0u8; 32];
+                rng.fill(&mut candidate_bytes);
+                let candidate = U256::from_be_bytes(candidate_bytes);
+                
+                // Calculate candidate hash
+                let candidate_hash = U256::from_be_bytes(B256::from(keccak256(&candidate.to_be_bytes::<32>())).0);
+                
+                // XOR with previous result
+                let result_hash = nonce_address_xor ^ candidate_hash;
+                
+                // Avoid division by zero
+                if result_hash == U256::ZERO {
+                    continue;
+                }
+                
+                // Calculate external gas
+                let external_gas = div_constant / result_hash;
+                
+                // Check if we found a solution
+                if external_gas >= U256::from(gas_amount) {
+                    // We found a solution, store it
+                    let mut solution_guard = solution_clone.lock().unwrap();
+                    *solution_guard = Some(candidate);
+                    
+                    // Signal other threads to stop
+                    solution_found_clone.store(true, Ordering::Relaxed);
+                    break;
+                }
+                
+                // Yield to the scheduler occasionally to prevent CPU hogging
+                iterations += 1;
+                if iterations % 10000 == 0 {
+                    if solution_found_clone.load(Ordering::Relaxed) {
+                        break;
+                    }
+                    
+                    // Give other threads a chance to run
+                    thread::yield_now();
+                }
+            }
+        });
         
-        // Calculate candidate hash
-        let candidate_hash = U256::from_be_bytes(B256::from(keccak256(&candidate.to_be_bytes::<32>())).0);
-        
-        // XOR with previous result
-        let result_hash = nonce_address_xor ^ candidate_hash;
-        
-        // Avoid division by zero
-        if result_hash == U256::ZERO {
-            continue;
-        }
-        
-        // Calculate external gas
-        let external_gas = div_constant / result_hash;
-        
-        // Check if we found a solution
-        if external_gas >= U256::from(gas_amount) {
-            let duration = start.elapsed();
-            return Ok((duration, candidate));
-        }
-        
-        // Yield to the event loop every 5000 iterations
-        iterations += 1;
-        if iterations % 5000 == 0 {
-            std::thread::yield_now();
-        }
+        handles.push(handle);
+    }
+    
+    // Wait for all threads to complete
+    for handle in handles {
+        let _ = handle.join();
+    }
+    
+    // Check if a solution was found
+    let duration = start.elapsed();
+    
+    let solution_guard = solution.lock().unwrap();
+    if let Some(candidate) = *solution_guard {
+        return Ok((duration, candidate));
+    } else {
+        return Err("No solution found".to_string());
     }
 }
 
@@ -113,11 +164,11 @@ mod tests {
     #[test]
     fn test_basic_mining() {
         let address = Address::parse_checksummed("0x1234567890123456789012345678901234567890", None).unwrap();
-        let result = mine_free_gas(21000, address, 1);
+        let result = mine_free_gas_parallel(21000, address, 1);
         assert!(result.is_ok());
     }
     
-    #[tokio::test]
+    #[tokio::test]  
     async fn test_skale_pow_mining() {
         let from_address = Address::parse_checksummed("0x742d35Cc6634C0532925a3b844Bc454e4438f44e", None).unwrap();
         let nonce = 42;
@@ -126,7 +177,7 @@ mod tests {
         println!("Testing SKALE PoW gas mining");
         
         let start = Instant::now();
-        let result = mine_free_gas(gas, from_address, nonce).unwrap();
+        let result = mine_free_gas_parallel(gas, from_address, nonce).unwrap();
         
         let elapsed = start.elapsed();
         println!("Mining completed successfully!");
